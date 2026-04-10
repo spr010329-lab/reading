@@ -1,12 +1,18 @@
-// @ts-nocheck
 "use client";
 
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function Home() {
-  const [books, setBooks] = useState<Book[]>([]);
-  type Participant = {
+// 타입 정의 (이게 핵심 해결)
+type Book = {
+  id: number;
+  title: string;
+  owner: string;
+  status: string;
+  borrower: string;
+};
+
+type Participant = {
   id: number;
   name: string;
   participation: number;
@@ -14,7 +20,10 @@ export default function Home() {
   bonus: number;
 };
 
-const [participants, setParticipants] = useState<Participant[]>([]);
+export default function Home() {
+  const [books, setBooks] = useState<Book[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
 
@@ -25,24 +34,17 @@ const [participants, setParticipants] = useState<Participant[]>([]);
 
   const fetchBooks = async () => {
     const { data } = await supabase.from("books").select("*");
-    setBooks((data as any[]) || []);
+    setBooks(data || []);
   };
 
   const fetchParticipants = async () => {
     const { data } = await supabase.from("participants").select("*");
-    setParticipants((data as any[]) || []);
+    setParticipants(data || []);
   };
 
-  // 🔥 타입 추가
-  type Book = {
-  id: number;
-  title: string;
-  owner: string;
-  status: string;
-  borrower: string;
-};
-
-const toggleStatus = async (book: Book)
+  // 상태 변경
+  const toggleStatus = async (book: Book) => {
+    const newStatus = book.status === "available" ? "borrowed" : "available";
 
     await supabase
       .from("books")
@@ -55,6 +57,7 @@ const toggleStatus = async (book: Book)
     fetchBooks();
   };
 
+  // 참가자 추가
   const addParticipant = async () => {
     if (!newName) return;
 
@@ -69,189 +72,114 @@ const toggleStatus = async (book: Book)
     fetchParticipants();
   };
 
-  const updateScore = async (id: number, field: string, value: any) => {
-    await supabase
-      .from("participants")
-      .update({ [field]: Number(value) })
-      .eq("id", id);
-
-    fetchParticipants();
-  };
-
-  const getTotal = (p: any) =>
-    Number(p.participation || 0) +
-    Number(p.influence || 0) +
-    Number(p.bonus || 0);
-
-  const sorted = [...participants].sort(
-    (a: any, b: any) => getTotal(b) - getTotal(a)
-  );
-
-  const filteredBooks = books.filter(
-    (b: any) =>
-      b.title.toLowerCase().includes(search.toLowerCase()) ||
-      b.owner.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const getMedal = (i: number) => {
-    if (i === 0) return "🥇";
-    if (i === 1) return "🥈";
-    if (i === 2) return "🥉";
-    return `${i + 1}`;
-  };
+  // 점수 계산
+  const sortedParticipants = [...participants]
+    .map((p) => ({
+      ...p,
+      total: p.participation + p.influence + p.bonus,
+    }))
+    .sort((a, b) => b.total - a.total);
 
   return (
-    <div style={{ padding: "40px", background: "#f5f6fa" }}>
-      <h1 style={{ textAlign: "center", fontSize: "32px", marginBottom: "30px" }}>
+    <div style={{ padding: "40px", fontFamily: "sans-serif" }}>
+      <h1 style={{ textAlign: "center", fontSize: "32px" }}>
         📚 유일하이스트 독서 챌린지
       </h1>
 
-      <div style={{ display: "flex", gap: "30px" }}>
+      <div style={{ display: "flex", gap: "40px", marginTop: "30px" }}>
         
-        {/* 📚 책 */}
+        {/* 책 리스트 */}
         <div style={{ flex: 2 }}>
-          <h2 style={{ fontSize: "22px", marginBottom: "10px" }}>
-            📗 책 대여 현황
-          </h2>
+          <h2>📖 책 대여 현황</h2>
 
           <input
-            placeholder="책 / 주인 검색"
+            placeholder="검색"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginBottom: "15px",
-              borderRadius: "8px",
-              border: "1px solid #ddd",
-            }}
+            style={{ width: "100%", padding: "10px", marginBottom: "20px" }}
           />
 
-          {filteredBooks.map((book: any) => (
-            <div
-              key={book.id}
-              style={{
-                background: "white",
-                padding: "14px 18px",
-                borderRadius: "12px",
-                marginBottom: "10px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: "bold" }}>{book.title}</div>
-                <div style={{ fontSize: "12px", color: "#777" }}>
-                  👤 {book.owner}
+          {books
+            .filter(
+              (b) =>
+                b.title.includes(search) || b.owner.includes(search)
+            )
+            .sort((a, b) => (a.status === "borrowed" ? -1 : 1))
+            .map((book) => (
+              <div
+                key={book.id}
+                style={{
+                  background: "#f5f5f5",
+                  padding: "15px",
+                  marginBottom: "10px",
+                  borderRadius: "10px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div>
+                  <b>{book.title}</b>
+                  <div style={{ fontSize: "12px" }}>{book.owner}</div>
+                </div>
+
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                  <span
+                    style={{
+                      padding: "5px 10px",
+                      borderRadius: "20px",
+                      color: "white",
+                      background:
+                        book.status === "available" ? "green" : "red",
+                    }}
+                  >
+                    {book.status === "available" ? "대여가능" : "대출중"}
+                  </span>
+
+                  <span>{book.borrower || "-"}</span>
+
+                  <button onClick={() => toggleStatus(book)}>변경</button>
                 </div>
               </div>
-
-              <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                <span
-                  style={{
-                    padding: "6px 14px",
-                    borderRadius: "20px",
-                    color: "white",
-                    fontSize: "12px",
-                    background:
-                      book.status === "available" ? "#27ae60" : "#e74c3c",
-                  }}
-                >
-                  {book.status === "available" ? "대여가능" : "대출중"}
-                </span>
-
-                <span style={{ fontSize: "12px", width: "60px" }}>
-                  {book.borrower || "-"}
-                </span>
-
-                <button
-                  onClick={() => toggleStatus(book)}
-                  style={{
-                    background: "#2d3436",
-                    color: "white",
-                    padding: "6px 10px",
-                    borderRadius: "6px",
-                    fontSize: "12px",
-                  }}
-                >
-                  변경
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
 
-        {/* 🏆 순위 */}
+        {/* 순위 */}
         <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: "22px", marginBottom: "10px" }}>
-            🏆 독서 점수 순위
-          </h2>
+          <h2>🏆 독서 점수 순위</h2>
 
-          <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+          {/* 관리자 입력 */}
+          <div style={{ marginBottom: "20px" }}>
             <input
-              placeholder="참가자"
+              placeholder="이름 추가"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              style={{ flex: 1, padding: "6px" }}
             />
             <button onClick={addParticipant}>추가</button>
           </div>
 
-          {sorted.map((p: any, i: number) => (
+          {sortedParticipants.map((p, i) => (
             <div
               key={p.id}
               style={{
+                padding: "15px",
+                marginBottom: "10px",
+                borderRadius: "10px",
                 background:
                   i === 0
-                    ? "#ffeaa7"
+                    ? "#ffd700"
                     : i === 1
-                    ? "#dfe6e9"
+                    ? "#c0c0c0"
                     : i === 2
-                    ? "#fab1a0"
-                    : "white",
-                padding: "10px",
-                borderRadius: "10px",
-                marginBottom: "8px",
+                    ? "#cd7f32"
+                    : "#eee",
               }}
             >
-              <div style={{ fontWeight: "bold" }}>
-                {getMedal(i)} {p.name}
-                <span style={{ float: "right" }}>{getTotal(p)}점</span>
-              </div>
+              <b>
+                {i + 1}위 {p.name} ({p.total}점)
+              </b>
 
-              <div style={{ display: "flex", fontSize: "11px", marginTop: "4px" }}>
-                <div style={{ flex: 1 }}>참여 {p.participation}</div>
-                <div style={{ flex: 1 }}>흥행 {p.influence}</div>
-                <div style={{ flex: 1 }}>가산 {p.bonus}</div>
-              </div>
-
-              <div style={{ display: "flex", gap: "4px", marginTop: "6px" }}>
-                <input
-                  type="number"
-                  value={p.participation}
-                  onChange={(e) =>
-                    updateScore(p.id, "participation", e.target.value)
-                  }
-                  style={{ width: "40px" }}
-                />
-                <input
-                  type="number"
-                  value={p.influence}
-                  onChange={(e) =>
-                    updateScore(p.id, "influence", e.target.value)
-                  }
-                  style={{ width: "40px" }}
-                />
-                <input
-                  type="number"
-                  value={p.bonus}
-                  onChange={(e) =>
-                    updateScore(p.id, "bonus", e.target.value)
-                  }
-                  style={{ width: "40px" }}
-                />
+              <div style={{ fontSize: "12px", marginTop: "5px" }}>
+                참여({p.participation}) / 흥행({p.influence}) / 가산({p.bonus})
               </div>
             </div>
           ))}
