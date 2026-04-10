@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-// 타입 정의 (이게 핵심 해결)
+// 타입 정의
 type Book = {
   id: number;
   title: string;
   owner: string;
-  status: string;
-  borrower: string;
+  status: "available" | "borrowed";
+  borrower: string | null;
 };
 
 type Participant = {
@@ -33,40 +33,63 @@ export default function Home() {
   }, []);
 
   const fetchBooks = async () => {
-    const { data } = await supabase.from("books").select("*");
-    setBooks(data || []);
+    const { data, error } = await supabase.from("books").select("*");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setBooks((data as Book[]) || []);
   };
 
   const fetchParticipants = async () => {
-    const { data } = await supabase.from("participants").select("*");
-    setParticipants(data || []);
+    const { data, error } = await supabase.from("participants").select("*");
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setParticipants((data as Participant[]) || []);
   };
 
   // 상태 변경
   const toggleStatus = async (book: Book) => {
-    const newStatus = book.status === "available" ? "borrowed" : "available";
+    const newStatus =
+      book.status === "available" ? "borrowed" : "available";
 
-    await supabase
+    const { error } = await supabase
       .from("books")
       .update({
         status: newStatus,
-        borrower: newStatus === "borrowed" ? "누군가" : "",
+        borrower: newStatus === "borrowed" ? "누군가" : null,
       })
       .eq("id", book.id);
+
+    if (error) {
+      console.error(error);
+      return;
+    }
 
     fetchBooks();
   };
 
   // 참가자 추가
   const addParticipant = async () => {
-    if (!newName) return;
+    if (!newName.trim()) return;
 
-    await supabase.from("participants").insert({
+    const { error } = await supabase.from("participants").insert({
       name: newName,
       participation: 0,
       influence: 0,
       bonus: 0,
     });
+
+    if (error) {
+      console.error(error);
+      return;
+    }
 
     setNewName("");
     fetchParticipants();
@@ -104,7 +127,9 @@ export default function Home() {
               (b) =>
                 b.title.includes(search) || b.owner.includes(search)
             )
-            .sort((a, b) => (a.status === "borrowed" ? -1 : 1))
+            .sort((a, b) =>
+              a.status === b.status ? 0 : a.status === "borrowed" ? -1 : 1
+            )
             .map((book) => (
               <div
                 key={book.id}
@@ -122,7 +147,13 @@ export default function Home() {
                   <div style={{ fontSize: "12px" }}>{book.owner}</div>
                 </div>
 
-                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "10px",
+                    alignItems: "center",
+                  }}
+                >
                   <span
                     style={{
                       padding: "5px 10px",
