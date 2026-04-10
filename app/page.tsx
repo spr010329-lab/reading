@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 export default function Home() {
-  const [books, setBooks] = useState([]);
-  const [participants, setParticipants] = useState([]);
+  const [books, setBooks] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
 
