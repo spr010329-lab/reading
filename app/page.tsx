@@ -5,8 +5,16 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 export default function Home() {
-  const [books, setBooks] = useState<any[]>([]);
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
+  type Participant = {
+  id: number;
+  name: string;
+  participation: number;
+  influence: number;
+  bonus: number;
+};
+
+const [participants, setParticipants] = useState<Participant[]>([]);
   const [search, setSearch] = useState("");
   const [newName, setNewName] = useState("");
 
@@ -26,8 +34,15 @@ export default function Home() {
   };
 
   // 🔥 타입 추가
-  const toggleStatus = async (book: any) => {
-    const newStatus = book.status === "available" ? "borrowed" : "available";
+  type Book = {
+  id: number;
+  title: string;
+  owner: string;
+  status: string;
+  borrower: string;
+};
+
+const toggleStatus = async (book: Book)
 
     await supabase
       .from("books")
